@@ -18,7 +18,7 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 char* url = "https://query2.finance.yahoo.com/v8/finance/chart/";
-String symbol[14] = { "VEDL", "SBIN", "ALOKINDS", "TRIDENT", "TATACHEM", "TATAPOWER", "STLTECH", "DEEPAKNTR", "RELIANCE", "INFY", "IEX", "UNOMINDA", "IRCTC", "CDSL" };
+String symbol[15] = { "MOTHERSON", "RELIANCE", "INFY", "VEDL", "SBIN", "IRCTC", "STLTECH", "TRIDENT", "ALOKINDS", "TATACHEM", "TATAPOWER", "DEEPAKNTR", "IEX", "UNOMINDA", "CDSL" };
 float price;
 float prevPrice;
 byte stockNos;
@@ -27,7 +27,7 @@ const long period = 10000;
 
 void setup() {
 
-  
+
   pinMode(RED, HIGH);    // Blue led Pin Connected To D5 Pin
   pinMode(GREEN, HIGH);  // Green Led Pin Connected To D6 Pin
   pinMode(BLUE, HIGH);   // Red Led Connected To D8 Pin
@@ -41,7 +41,7 @@ void setup() {
       ;
   }
 
- display.clearDisplay();  // boot text
+  display.clearDisplay();  // boot text
   display.setTextColor(WHITE);
   drawCentreString("THE", 64, 4, 1);
   display.setTextSize(2);
@@ -53,12 +53,24 @@ void setup() {
   display.print("MYSTIC");
   display.write(3);
   display.display();
-  setRGB(255, 0, 0);
-  delay(500);
-  setRGB(0, 255, 0);
-  delay(500);
-  setRGB(0, 0, 255);
-  delay(500);
+
+
+  unsigned int rgbColour[3];
+  // Start off with red.
+  rgbColour[0] = 255;
+  rgbColour[1] = 0;
+  rgbColour[2] = 0;
+  // Choose the colours to increment and decrement.
+  for (int decColour = 0; decColour < 3; decColour += 1) {
+    int incColour = decColour == 2 ? 0 : decColour + 1;
+    // cross-fade the two colours.
+    for (int i = 0; i < 255; i += 1) {
+      rgbColour[decColour] -= 1;
+      rgbColour[incColour] += 1;
+      setRGB(rgbColour[0], rgbColour[1], rgbColour[2]);
+      delay(5);
+    }
+  }
 
   WiFiManager wifiManager;
   wifiManager.autoConnect("StonkDisplay");
@@ -69,55 +81,54 @@ void setup() {
   drawCentreString("Connecting to WiFi..", 64, 28, 1);
   display.display();
 
-  
+
+  display.clearDisplay();
+  display.setTextColor(WHITE, BLACK);  //connected to wifi
+  drawCentreString("Connected\nStarting OTA...", 64, 28, 1);
+  display.display();
+  Serial.println("Connected");
+
+  ArduinoOTA.setHostname("StockStalker");
+  ArduinoOTA.onStart([]() {
+    String type;
+    if (ArduinoOTA.getCommand() == U_FLASH)
+      type = "sketch";
+    else  // U_SPIFFS
+      type = "filesystem";
+    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+    Serial.println("Start updating " + type);
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
     display.clearDisplay();
-    display.setTextColor(WHITE, BLACK);  //connected to wifi
-    drawCentreString("Connected\nStarting OTA...", 64, 28, 1);
+    display.setCursor(0, 28);
+    display.setTextColor(WHITE, BLACK);
+    display.printf("Progress: %u%%\r", (progress / (total / 100)));
     display.display();
-    Serial.println("Connected");
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
 
-    ArduinoOTA.setHostname("StockStalker");
-    ArduinoOTA.onStart([]() {
-      String type;
-      if (ArduinoOTA.getCommand() == U_FLASH)
-        type = "sketch";
-      else  // U_SPIFFS
-        type = "filesystem";
-      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-      Serial.println("Start updating " + type);
-    });
-    ArduinoOTA.onEnd([]() {
-      Serial.println("\nEnd");
-    });
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-      display.clearDisplay();
-      display.setCursor(0, 28);
-      display.setTextColor(WHITE, BLACK);
-      display.printf("Progress: %u%%\r", (progress / (total / 100)));
-      display.display();
-    });
-    ArduinoOTA.onError([](ota_error_t error) {
-      Serial.printf("Error[%u]: ", error);
-      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-      else if (error == OTA_END_ERROR) Serial.println("End Failed");
-    });
+  ArduinoOTA.begin();
+  Serial.println("Ready");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
 
-    ArduinoOTA.begin();
-    Serial.println("Ready");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
-
-    display.clearDisplay();
-    display.setTextColor(WHITE, BLACK);  //connected to wifi
-    drawCentreString("OTA Started :)", 64, 28, 1);
-    display.print("\nIP: ");
-    display.print(WiFi.localIP());
-    display.display();
-  
+  display.clearDisplay();
+  display.setTextColor(WHITE, BLACK);  //connected to wifi
+  drawCentreString("OTA Started :)", 64, 28, 1);
+  display.print("\nIP: ");
+  display.print(WiFi.localIP());
+  display.display();
 }
 
 
@@ -138,7 +149,7 @@ void loop() {
     Serial.println(ESP.getFreeHeap());
     stockNos++;
     Serial.println(stockNos);
-    if (stockNos > 14) {
+    if (stockNos >= 15) {  //To be updated when adding new elements in array
       stockNos = 0;
     }
   }
@@ -180,6 +191,7 @@ void fetch(const byte x) {
         Serial.print(F("deserializeJson() failed: "));
         Serial.println(error.f_str());
       }
+      price++;
       prevPrice = doc["chart"]["result"][0]["meta"]["previousClose"];
       price = doc["chart"]["result"][0]["meta"]["regularMarketPrice"];
     }
@@ -198,12 +210,12 @@ void drawCentreString(const String buf, int x, int y, int z) {
   display.setCursor(x - w / 2, y);
   display.print(buf);
 }
-void stonkToDisplay(int x) {
+void stonkToDisplay(byte x) {
   float percentChange = changePer(prevPrice, price);
 
   display.clearDisplay();
   display.setTextColor(WHITE, BLACK);
-  drawCentreString(symbol[x], 64, 4, 2);
+  drawCentreString(symbol[x], 64, 3, 2);
   display.setCursor(0, 24);
   display.setTextSize(2);
   display.write(125);
@@ -214,17 +226,16 @@ void stonkToDisplay(int x) {
   if (percentChange > 0) {
     display.write(30);
     display.printf(" %.2f%%\r\n", percentChange);
-    setRGB(0, 25, 0);
+    setRGB(0, 10, 0);
   } else if (percentChange < 0) {
     display.write(31);
     display.printf(" %.2f%%\r\n", percentChange);
-    setRGB(25, 0, 0);
+    setRGB(10, 0, 0);
   } else {
     display.write(1);
     display.printf(" %.2f%%\r\n", percentChange);
-    setRGB(0, 0, 25);
+    setRGB(0, 0, 10);
   }
-
   display.print("\r\n Frag: ");
   display.print(ESP.getHeapFragmentation());
   display.drawRect(0, 0, 128, 64, WHITE);
